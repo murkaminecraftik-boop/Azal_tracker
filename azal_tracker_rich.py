@@ -12,7 +12,6 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 
 console = Console()
 
-# Universal Airport Code Dictionary for translating raw ICAO codes to gorgeous city banners
 AIRPORT_MAP = {
     "UBBB": "Baku (GYD) 🇦🇿",
     "LTFM": "Istanbul (IST) 🇹🇷",
@@ -44,17 +43,12 @@ AIRPORT_MAP = {
 
 
 def resolve_airport(icao):
-    """Translates ICAO airport identifiers to beautiful strings."""
     if not icao:
         return "[italic dim white]Unavailable[/italic dim white]"
     return AIRPORT_MAP.get(icao.upper(), f"Code: {icao.upper()}")
 
 
 def fetch_route_info(icao24):
-    """
-    Queries OpenSky's active flight manifest history for the specific airframe
-    to extract the current departure and arrival hubs.
-    """
     now = int(time.time())
     twenty_four_hours_ago = now - 86400
 
@@ -66,19 +60,19 @@ def fetch_route_info(icao24):
         if response.status_code == 200:
             flights = response.json()
             if flights:
-                # The last item in the logged array contains the active or most immediate flight data leg
                 latest_flight = flights[-1]
                 return {
                     "departure": latest_flight.get("estDepartureAirport"),
                     "arrival": latest_flight.get("estArrivalAirport")
                 }
+        else:
+            return {"departure": None, "arrival": None}
     except Exception:
         pass
     return {"departure": None, "arrival": None}
 
 
 def fetch_live_azal_fleet():
-    """Fetches real-time telemetry state vectors and maps flight profiles."""
     url = "https://opensky-network.org/api/states/all"
 
     try:
@@ -101,7 +95,6 @@ def fetch_live_azal_fleet():
 
     enriched_fleet = []
 
-    # Process route discovery loops using a progress bar
     if raw_active_azal:
         with Progress(
                 SpinnerColumn(spinner_name="earth"),
@@ -114,7 +107,6 @@ def fetch_live_azal_fleet():
                 icao24 = state[0]
                 callsign = state[1].strip()
 
-                # Fetch deeper departure/arrival telemetry paths
                 route = fetch_route_info(icao24)
 
                 alt_meters = state[7]
@@ -123,7 +115,6 @@ def fetch_live_azal_fleet():
                 speed_ms = state[9]
                 speed_knots = int(speed_ms * 1.94384) if speed_ms is not None else 0
 
-                # Extract Ascent/Descent vector rates (meters per second)
                 v_rate = state[11]
                 if v_rate is not None:
                     if v_rate > 0.5:
@@ -135,7 +126,6 @@ def fetch_live_azal_fleet():
                 else:
                     trend = "Steady"
 
-                # Extract Squawk (Air Traffic Control transponder assignment token)
                 squawk = state[14] if state[14] else "0000"
 
                 enriched_fleet.append({
@@ -158,7 +148,6 @@ def fetch_live_azal_fleet():
 
 
 def generate_map(flights, output_filename="azal_advanced_tracker.html"):
-    """Generates an enhanced geographical map overlay file."""
     baku_coords = [40.4675, 50.0467]
     flight_map = folium.Map(location=baku_coords, zoom_start=4, tiles="CartoDB positron")
 
@@ -205,7 +194,6 @@ def main():
             Panel(warning_msg, title="[bold red]System Notification[/bold red]", border_style="red", expand=False))
         return
 
-    # Advanced Multi-Column Data Matrix Layout Table
     table = Table(
         title="[bold gold1]Live Operational Flight Manifest Status Screen",
         title_style="bold white",
@@ -226,7 +214,6 @@ def main():
     for f in flights:
         alt_display = f"{f['altitude']:,} ft" if isinstance(f['altitude'], int) else str(f['altitude'])
 
-        # Color code flight behaviors
         if "Climbing" in f['trend']:
             trend_colored = f"[bold green]{alt_display} ↗[/bold green]"
         elif "Descending" in f['trend']:
